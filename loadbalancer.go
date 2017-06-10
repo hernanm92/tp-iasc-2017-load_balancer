@@ -10,11 +10,10 @@ import "time"
 func main() {
 	router := gin.Default()
 
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-		})
-	})
+    router.GET("/:route", ReverseProxy())
+    router.POST("/:route", ReverseProxy())
+    router.PUT("/:route", ReverseProxy())
+    router.DELETE("/:route", ReverseProxy())
 
 	router.GET("/test", ReverseProxy(RandomServer())) // ver como hacer para que la url sea wildcard
 
