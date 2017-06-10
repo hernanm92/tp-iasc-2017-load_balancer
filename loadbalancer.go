@@ -10,28 +10,23 @@ import "time"
 func main() {
 	router := gin.Default()
 
-	router.Any("/:path", ReverseProxy(RandomServer()))
-	// router.Any(relativePath, handlers)
+	router.Any("/:path", ReverseProxy)
 
-	router.Run(":8080") // listen and serve on 0.0.0.0:8080
+	router.Run(":8080")
 }
 
-func ReverseProxy(target string) gin.HandlerFunc {
-	fmt.Print("-------------- exec reverse proxy --------------------\n")
+func ReverseProxy(c *gin.Context) {
+	target := RandomServer()
 
 	url, err := url.Parse(target)
 	fmt.Print(err)
 	// checkErr(err)
 	proxy := httputil.NewSingleHostReverseProxy(url)
-	return func(c *gin.Context) {
-		proxy.ServeHTTP(c.Writer, c.Request)
-	}
+	proxy.ServeHTTP(c.Writer, c.Request)
 }
 
 func RandomServer() string {
-	fmt.Print("-------------- exec random server --------------------\n") // se esta ejecutando una unica vez
-
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().Unix()) // necesito algo mas random todavia
 
 	target_list := []string{
 		"http://localhost:8081",
