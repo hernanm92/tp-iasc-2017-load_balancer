@@ -11,11 +11,11 @@ func main() {
 		})
 	})
 
-    router.GET("/test", func(c *gin.Context) {
-        c.JSON(200, gin.H{
-            "message": "test server 1",
-        })
-    })
+	router.GET("/test", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "backend 3",
+		})
+	})
 
-	router.Run(":8081")
+	router.Run(":8083")
 }

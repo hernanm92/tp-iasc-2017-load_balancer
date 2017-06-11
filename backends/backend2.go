@@ -13,7 +13,7 @@ func main() {
 
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"message": "test server 2",
+			"message": "backend 2",
 		})
 	})
 
