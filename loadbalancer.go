@@ -15,8 +15,10 @@ type Config struct {
 	Backends []string `json:"backends"`
 }
 
+var config Config
+
 func main() {
-	config := LoadConfigFile("config.json")
+	LoadConfigFile("config.json")
 	fmt.Print(config)
 
 	router := gin.Default()
@@ -37,23 +39,16 @@ func ReverseProxy(c *gin.Context) {
 }
 
 func RandomServer() string {
-	targetList := []string{
-		"http://localhost:8081",
-		"http://localhost:8082",
-		"http://localhost:8083",
-	}
-	n := rand.Intn(100) % len(targetList)
+	n := rand.Intn(100) % len(config.Backends)
 
-	return targetList[n]
+	return config.Backends[n]
 }
 
-func LoadConfigFile(filename string) Config {
-	var config Config
+func LoadConfigFile(filename string) {
+
 	configFile, _ := os.Open(filename)
 	defer configFile.Close()
 
 	jsonParser := json.NewDecoder(configFile)
 	jsonParser.Decode(&config)
-
-	return config
 }
