@@ -20,8 +20,8 @@ func NewClient() *redis.Client {
 	return client
 }
 
-func (cacheClient CacheClient) SetRequest() {
-	cacheClient.RedisClient.Set("key", "value", 0)
+func (cacheClient CacheClient) SetRequest(path string) {
+	cacheClient.RedisClient.Set(path, "value", 0)
 }
 
 func (cacheClient CacheClient) GetRequest() {

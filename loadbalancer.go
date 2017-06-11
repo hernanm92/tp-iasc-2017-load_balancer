@@ -18,6 +18,7 @@ type Config struct {
 }
 
 var config Config
+var cacheClient = cache.CacheClient{cache.NewClient()}
 
 func main() {
 	LoadConfigFile("config.json")
@@ -27,7 +28,7 @@ func main() {
 
 	router := gin.Default()
 
-	router.Any("/*path", ReverseProxy)
+	router.Any("*path", ReverseProxy)
 
 	router.Run(":8080")
 }
@@ -40,9 +41,9 @@ func ReverseProxy(c *gin.Context) {
 	proxy := httputil.NewSingleHostReverseProxy(url)
 	// voy a necesitar saber la respuesta para poder cachearla
 
-	cache_client := cache.CacheClient{cache.NewClient()}
-	cache_client.SetRequest()
 	proxy.ServeHTTP(c.Writer, c.Request)
+
+	cacheClient.SetRequest(c.Param("path")) // para probar solo mando el path
 }
 
 func RandomServer() string {
