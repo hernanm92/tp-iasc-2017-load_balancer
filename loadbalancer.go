@@ -8,18 +8,22 @@ import (
 	"net/url"
 	"os"
 
+	"./libs"
 	"github.com/gin-gonic/gin"
 )
 
 type Config struct {
 	Backends []string `json:"backends"`
+	WaitTime int      `json:"wait_time"`
 }
 
 var config Config
 
 func main() {
 	LoadConfigFile("config.json")
-	fmt.Print(config)
+	fmt.Println(config)
+
+	fmt.Println("Starting Server...")
 
 	router := gin.Default()
 
@@ -31,10 +35,13 @@ func main() {
 func ReverseProxy(c *gin.Context) {
 	target := RandomServer()
 
-	url, err := url.Parse(target)
-	fmt.Print(err)
+	url, _ := url.Parse(target)
 
 	proxy := httputil.NewSingleHostReverseProxy(url)
+	// voy a necesitar saber la respuesta para poder cachearla
+
+	cache_client := cache.CacheClient{cache.NewClient()}
+	cache_client.SetRequest()
 	proxy.ServeHTTP(c.Writer, c.Request)
 }
 
@@ -45,7 +52,6 @@ func RandomServer() string {
 }
 
 func LoadConfigFile(filename string) {
-
 	configFile, _ := os.Open(filename)
 	defer configFile.Close()
 
