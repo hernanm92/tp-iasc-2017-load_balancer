@@ -20,10 +20,15 @@ func NewClient() *redis.Client {
 	return client
 }
 
-func (cacheClient CacheClient) SetRequest(path string) {
-	cacheClient.RedisClient.Set(path, "value", 0)
+func (cacheClient CacheClient) SetRequest(request string, response string) {
+	cacheClient.RedisClient.Set(request, response, 0)
 }
 
-func (cacheClient CacheClient) GetRequest() {
-	fmt.Println("exec cache.GetRequest")
+func (cacheClient CacheClient) GetRequest(request string) (data string) {
+	val, error := cacheClient.RedisClient.Get(request).Result()
+	if error == redis.Nil {
+		fmt.Println("Key no existe")
+	}
+	return string(val)
 }
+

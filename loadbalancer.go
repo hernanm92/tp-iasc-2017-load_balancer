@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 
-	"./libs"
+	"tp-iasc-2017-load_balancer/libs"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,12 +19,15 @@ type Config struct {
 	WaitTime int      `json:"wait_time"`
 }
 
+type IterceptorTransport struct {
+}
+
 var config Config
+
 var cacheClient = cache.CacheClient{cache.NewClient()}
 
 func main() {
 	LoadConfigFile("config.json")
-	fmt.Println(config)
 
 	fmt.Println("Starting Server...")
 
@@ -39,11 +44,24 @@ func ReverseProxy(c *gin.Context) {
 	url, _ := url.Parse(target)
 
 	proxy := httputil.NewSingleHostReverseProxy(url)
-	// voy a necesitar saber la respuesta para poder cachearla
+	//si tengo q guardar en cache uso interceptorTransport para tomar el reponse del servidor
+	proxy.Transport = &IterceptorTransport{}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
+}
 
-	cacheClient.SetRequest(c.Param("path")) // para probar solo mando el path
+//override del roundtrip default de transport
+func (t *IterceptorTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	response, err := http.DefaultTransport.RoundTrip(request)
+	//validar error
+	body, err := httputil.DumpResponse(response, true)
+	//validar error
+	requestString := CreateRequesString(request)
+	cacheClient.SetRequest(requestString, string(body))
+	data := cacheClient.GetRequest(requestString)
+	fmt.Println(data)
+
+	return response, err
 }
 
 func RandomServer() string {
@@ -58,4 +76,25 @@ func LoadConfigFile(filename string) {
 
 	jsonParser := json.NewDecoder(configFile)
 	jsonParser.Decode(&config)
+}
+
+//falta el body, si es post, y los params si es query
+//pasarlo a otra lib y  puede ser mejorable esta funcion
+func CreateRequesString(request *http.Request) (req string) {
+
+	accept := request.Header.Get("Accept")
+	aceeptEncoding := request.Header.Get("Accept-Encoding")
+	acceptLenguage := request.Header.Get("Accept-Language")
+	//cacheControl := request.Header.Get("Cache-Control")
+	connection := request.Header.Get("Connection")
+	cookie := request.Header.Get("Cookie")
+	userAgent := request.Header.Get("User-Agent")
+
+	headerString := accept + ";" + aceeptEncoding + ";" + acceptLenguage + ";" + connection + ";" + cookie + ";" + userAgent
+
+	generalRequestString := request.Host + ";" + request.RequestURI + ";" + request.Method + ";" + request.Proto + ";"
+
+	requestString := generalRequestString + headerString
+
+	return requestString
 }
