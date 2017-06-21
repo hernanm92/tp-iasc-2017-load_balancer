@@ -15,8 +15,9 @@ import (
 )
 
 type Config struct {
-	Backends []string `json:"backends"`
-	WaitTime int      `json:"wait_time"`
+	Backends             []string `json:"backends"`
+	WaitTime             int      `json:"wait_time"`
+	ExpiredTimeInMinutes int      `json:"expired_time_in_minutes"`
 }
 
 type IterceptorTransport struct {
@@ -44,22 +45,40 @@ func ReverseProxy(c *gin.Context) {
 	url, _ := url.Parse(target)
 
 	proxy := httputil.NewSingleHostReverseProxy(url)
-	//si tengo q guardar en cache uso interceptorTransport para tomar el reponse del servidor
-	proxy.Transport = &IterceptorTransport{}
 
-	proxy.ServeHTTP(c.Writer, c.Request)
+	//esta logica tine q estar en otro lado
+	if !cacheClient.IsCacheble(c.Request) {
+		//no usa cache, actuo normal
+		proxy.ServeHTTP(c.Writer, c.Request)
+		msg("no es cacheable")
+	} else {
+		//cacheo
+		if cacheClient.ExistsOrNotExpiredKey(c.Request) {
+			//existe, traigo de la redis y respondo
+			msg("existe request")
+			data := cacheClient.GetRequestValue(c.Request)
+			c.JSON(200, gin.H{"data": data})
+		} else {
+			//hago el llamado, guardo en el roundtrip y envio
+			msg("-----No existe hago el llamado----")
+			proxy.Transport = &IterceptorTransport{}
+			proxy.ServeHTTP(c.Writer, c.Request)
+		}
+
+	}
+}
+
+func msg(msg string) {
+	fmt.Println("----------------- " + msg + " --------------")
 }
 
 //override del roundtrip default de transport
 func (t *IterceptorTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	response, err := http.DefaultTransport.RoundTrip(request)
+
+	a, _ := response.Body.Read(b)
 	//validar error
-	body, err := httputil.DumpResponse(response, true)
-	//validar error
-	requestString := CreateRequesString(request)
-	cacheClient.SetRequest(requestString, string(body))
-	data := cacheClient.GetRequest(requestString)
-	fmt.Println(data)
+	cacheClient.SetRequest(request, string(a)) //agregar expiracion
 
 	return response, err
 }
@@ -76,25 +95,4 @@ func LoadConfigFile(filename string) {
 
 	jsonParser := json.NewDecoder(configFile)
 	jsonParser.Decode(&config)
-}
-
-//falta el body, si es post, y los params si es query
-//pasarlo a otra lib y  puede ser mejorable esta funcion
-func CreateRequesString(request *http.Request) (req string) {
-
-	accept := request.Header.Get("Accept")
-	aceeptEncoding := request.Header.Get("Accept-Encoding")
-	acceptLenguage := request.Header.Get("Accept-Language")
-	//cacheControl := request.Header.Get("Cache-Control")
-	connection := request.Header.Get("Connection")
-	cookie := request.Header.Get("Cookie")
-	userAgent := request.Header.Get("User-Agent")
-
-	headerString := accept + ";" + aceeptEncoding + ";" + acceptLenguage + ";" + connection + ";" + cookie + ";" + userAgent
-
-	generalRequestString := request.Host + ";" + request.RequestURI + ";" + request.Method + ";" + request.Proto + ";"
-
-	requestString := generalRequestString + headerString
-
-	return requestString
 }
