@@ -75,10 +75,10 @@ func msg(msg string) {
 //override del roundtrip default de transport
 func (t *IterceptorTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	response, err := http.DefaultTransport.RoundTrip(request)
-
-	a, _ := response.Body.Read(b)
 	//validar error
-	cacheClient.SetRequest(request, string(a)) //agregar expiracion
+	body, err := httputil.DumpResponse(response, true)
+	//validar error
+	cacheClient.SetRequest(request, string(body)) //agregar expiracion
 
 	return response, err
 }
