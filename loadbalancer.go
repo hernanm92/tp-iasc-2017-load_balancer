@@ -3,11 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os"
-
 	"tp-iasc-2017-load_balancer/libs"
 
 	"github.com/gin-gonic/gin"
@@ -17,13 +16,6 @@ type Config struct {
 	Backends             []string `json:"backends"`
 	WaitTimeSeconds      int      `json:"wait_time_seconds"`
 	ExpiredTimeInMinutes int      `json:"expired_time_in_minutes"`
-}
-
-type IterceptorTransport struct {
-}
-
-type Msg struct {
-	message string
 }
 
 var config Config
@@ -44,41 +36,48 @@ func main() {
 
 func ReverseProxy(c *gin.Context) {
 	target := RandomServer()
-
-	//esta logica tine q estar en otro lado
-	if !cacheClient.IsCacheble(c.Request) {
-		//no usa cache, actuo normal
-		resp := DoRequest("GET", target+c.Request.RequestURI, nil, nil)
-		r, _ := json.Marshal(resp)
-		c.Writer.Write(r)
-
-	} else {
+	//esta logica tiene q estar en otro lado
+	if cacheClient.IsCacheble(c.Request) {
 		//cacheo
 		if cacheClient.ExistsOrNotExpiredKey(c.Request) {
 			//existe, traigo de la redis y respondo
-			msg("existe request")
-			//data := cacheClient.GetRequestValue(c.Request)
+			fmt.Println("existe request")
+			data := cacheClient.GetRequestValue(c.Request)
+			c.String(200, data)
 
 		} else {
-			//hago el llamado, guardo en el roundtrip y envio
-			msg("-----No existe hago el llamado----")
+			//hago el llamado, guardo
+			bodystring := DoRequest(c.Request, target)
+			cacheClient.SetRequest(c.Request, bodystring, config.ExpiredTimeInMinutes)
+			c.String(200, bodystring)
+			fmt.Println("-----No existe hago el llamado----")
 		}
+	} else {
+		//no usa cache, actuo normal
+		bodystring := DoRequest(c.Request, target)
+		c.String(200, bodystring)
+		fmt.Println("No existe request")
 
 	}
 }
 
+//Aca setear el timeout
 var client = &http.Client{}
 
-func DoRequest(method string, url string, header http.Header, body io.ReadCloser) *http.Response {
+func DoRequest(request *http.Request, url string) (bodystring string) {
 
-	//fijarse como meter el body
-	req, _ := http.NewRequest("GET", url, nil)
-	resp, _ := client.Do(req)
-	return resp
-}
+	req, _ := http.NewRequest(request.Method, url+request.RequestURI, request.Body)
+	req.Header = request.Header
+	//client.Timeout = time.Duration(config.WaitTimeSeconds) * time.Second
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer resp.Body.Close()
+	body, _ := ioutil.ReadAll(resp.Body)
+	stringBody := string(body)
 
-func msg(msg string) {
-	fmt.Println("----------------- " + msg + " --------------")
+	return stringBody
 }
 
 func RandomServer() string {

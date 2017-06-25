@@ -5,5 +5,5 @@
     "http://localhost:8083"
   ],
   "wait_time_seconds": 5,
-  "expired_time_in_minutes": 60
+  "expired_time_in_minutes": 1
 }

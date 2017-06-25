@@ -5,6 +5,10 @@ import (
 	"net/http"
 	"strings"
 
+	"net/http/httputil"
+
+	"time"
+
 	"github.com/go-redis/redis"
 )
 
@@ -22,9 +26,9 @@ func NewClient() *redis.Client {
 	return client
 }
 
-func (cacheClient CacheClient) SetRequest(request *http.Request, response string) {
+func (cacheClient CacheClient) SetRequest(request *http.Request, responseData string, expiredTime int) {
 	key := CreateRequesString(request)
-	cacheClient.RedisClient.Set(key, response, 0)
+	cacheClient.RedisClient.Set(key, responseData, time.Duration(expiredTime)*time.Minute)
 }
 
 func (cacheClient CacheClient) GetRequestValue(request *http.Request) (data string) {
@@ -47,13 +51,11 @@ func (cacheClient CacheClient) ExistsOrNotExpiredKey(request *http.Request) bool
 
 func (cacheClient CacheClient) IsCacheble(request *http.Request) bool {
 	cachecontrol := string(request.Header.Get("Cache-Control"))
-
+	fmt.Println(cachecontrol)
 	return strings.EqualFold(string(request.Method), "GET") && !strings.EqualFold(cachecontrol, "no-cache") && !strings.EqualFold(cachecontrol, "expired")
 }
 
 func CreateRequesString(request *http.Request) (request_string string) {
-	//solucion temporal, por ahi no es necesario poner cmo key los heaeders o algunos
-	generalRequestString := request.Host + ";" + request.RequestURI + ";" + request.Method + ";" + request.Proto
-	fmt.Println(generalRequestString)
-	return generalRequestString
+	req, _ := httputil.DumpRequest(request, true)
+	return string(req)
 }
