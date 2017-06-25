@@ -3,10 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 
 	"tp-iasc-2017-load_balancer/libs"
@@ -16,11 +15,15 @@ import (
 
 type Config struct {
 	Backends             []string `json:"backends"`
-	WaitTime             int      `json:"wait_time"`
+	WaitTimeSeconds      int      `json:"wait_time_seconds"`
 	ExpiredTimeInMinutes int      `json:"expired_time_in_minutes"`
 }
 
 type IterceptorTransport struct {
+}
+
+type Msg struct {
+	message string
 }
 
 var config Config
@@ -42,48 +45,45 @@ func main() {
 func ReverseProxy(c *gin.Context) {
 	target := RandomServer()
 
-	url, _ := url.Parse(target)
-
-	proxy := httputil.NewSingleHostReverseProxy(url)
-
 	//esta logica tine q estar en otro lado
 	if !cacheClient.IsCacheble(c.Request) {
 		//no usa cache, actuo normal
-		proxy.ServeHTTP(c.Writer, c.Request)
-		msg("no es cacheable")
+		resp := DoRequest("GET", target+c.Request.RequestURI, nil, nil)
+		r, _ := json.Marshal(resp)
+		c.Writer.Write(r)
+
 	} else {
 		//cacheo
 		if cacheClient.ExistsOrNotExpiredKey(c.Request) {
 			//existe, traigo de la redis y respondo
 			msg("existe request")
-			data := cacheClient.GetRequestValue(c.Request)
-			c.JSON(200, gin.H{"data": data})
+			//data := cacheClient.GetRequestValue(c.Request)
+
 		} else {
 			//hago el llamado, guardo en el roundtrip y envio
 			msg("-----No existe hago el llamado----")
-			proxy.Transport = &IterceptorTransport{}
-			proxy.ServeHTTP(c.Writer, c.Request)
 		}
 
 	}
+}
+
+var client = &http.Client{}
+
+func DoRequest(method string, url string, header http.Header, body io.ReadCloser) *http.Response {
+
+	//fijarse como meter el body
+	req, _ := http.NewRequest("GET", url, nil)
+	resp, _ := client.Do(req)
+	return resp
 }
 
 func msg(msg string) {
 	fmt.Println("----------------- " + msg + " --------------")
 }
 
-//override del roundtrip default de transport
-func (t *IterceptorTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	response, err := http.DefaultTransport.RoundTrip(request)
-	//validar error
-	body, err := httputil.DumpResponse(response, true)
-	//validar error
-	cacheClient.SetRequest(request, string(body)) //agregar expiracion
-
-	return response, err
-}
-
 func RandomServer() string {
+	//buscar los q no estaninhabilitados sino devovler al cliente que no
+	//esta disponible el reques pot falta de servidores.
 	n := rand.Intn(100) % len(config.Backends)
 
 	return config.Backends[n]
