@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"regexp"
+	"time"
 	"tp-iasc-2017-load_balancer/libs"
 
 	"github.com/gin-gonic/gin"
@@ -56,7 +58,7 @@ func ReverseProxy(c *gin.Context) {
 		//no usa cache, actuo normal
 		bodystring := DoRequest(c.Request, target)
 		c.String(200, bodystring)
-		fmt.Println("No existe request")
+		fmt.Println("No es cacheable")
 
 	}
 }
@@ -68,11 +70,16 @@ func DoRequest(request *http.Request, url string) (bodystring string) {
 
 	req, _ := http.NewRequest(request.Method, url+request.RequestURI, request.Body)
 	req.Header = request.Header
-	//client.Timeout = time.Duration(config.WaitTimeSeconds) * time.Second
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-	}
+	client.Timeout = time.Duration(config.WaitTimeSeconds) * time.Second
+	resp, _ := client.Do(req)
+	//code := checkError(err.Error())
+
+	//buscar servidor nuevo y enviar
+	/*if code == 408 {
+		target := RandomServer() // si target es cero -> enviar un msenaje dicieidno q no esta disponilbe el recurso
+		DoRequest(request, target)
+	}*/
+
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 	stringBody := string(body)
@@ -94,4 +101,14 @@ func LoadConfigFile(filename string) {
 
 	jsonParser := json.NewDecoder(configFile)
 	jsonParser.Decode(&config)
+}
+
+func checkError(msg string) int {
+	timeout, _ := regexp.MatchString("Timeout", msg)
+
+	if timeout {
+		return 408
+	}
+
+	return 500
 }
