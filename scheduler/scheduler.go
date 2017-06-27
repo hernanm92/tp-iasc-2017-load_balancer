@@ -15,8 +15,6 @@ type ServerScheduler struct {
 
 //cambiar nombre por "primer disponibe"
 func (scheduler ServerScheduler) RandomServer(servers []ServerData) (ServerData, int) {
-	//buscar los q no estaninhabilitados sino devovler al cliente que no
-	//esta disponible el reques pot falta de servidoress
 	//n := rand.Intn(100) % len(config.Backends)
 	count := 0
 	availableServer := 0
