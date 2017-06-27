@@ -3,13 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
-	"net/http"
 	"os"
 	"regexp"
-	"time"
+	"strings"
+	"tp-iasc-2017-load_balancer/httpclient"
 	"tp-iasc-2017-load_balancer/libs"
+	"tp-iasc-2017-load_balancer/scheduler"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,11 +20,16 @@ type Config struct {
 }
 
 var config Config
-
 var cacheClient = cache.CacheClient{cache.NewClient()}
+var schedulerClient = scheduler.ServerScheduler{}
+var servers []scheduler.ServerData
+
+var httpClient = httpclient.HttpClient{config.WaitTimeSeconds}
 
 func main() {
 	LoadConfigFile("config.json")
+
+	servers = schedulerClient.InitServers(config.Backends)
 
 	fmt.Println("Starting Server...")
 
@@ -36,63 +40,80 @@ func main() {
 	router.Run(":8080")
 }
 
-func ReverseProxy(c *gin.Context) {
-	target := RandomServer()
-	//esta logica tiene q estar en otro lado
-	if cacheClient.IsCacheble(c.Request) {
-		//cacheo
-		if cacheClient.ExistsOrNotExpiredKey(c.Request) {
-			//existe, traigo de la redis y respondo
-			fmt.Println("existe request")
-			data := cacheClient.GetRequestValue(c.Request)
-			c.String(200, data)
-
-		} else {
-			//hago el llamado, guardo
-			bodystring := DoRequest(c.Request, target)
-			cacheClient.SetRequest(c.Request, bodystring, config.ExpiredTimeInMinutes)
-			c.String(200, bodystring)
-			fmt.Println("-----No existe hago el llamado----")
-		}
+func ReverseProxy(context *gin.Context) {
+	if cacheClient.IsCacheble(context.Request) {
+		//cacheoss
+		cacheRequest(context)
 	} else {
-		//no usa cache, actuo normal
-		bodystring := DoRequest(c.Request, target)
-		c.String(200, bodystring)
-		fmt.Println("No es cacheable")
-
+		fmt.Println("-----el request no es cacheable, no uso cache------")
+		MakeRequest(context)
 	}
 }
 
-//Aca setear el timeout
-var client = &http.Client{}
+func MakeRequest(context *gin.Context) (string, int) {
+	server, errorCode := schedulerClient.RandomServer(servers)
+	if errorCode == -1 {
+		context.String(200, "En estos momentos no se puede antender esta solicitud")
+		return "", -1
+	}
 
-func DoRequest(request *http.Request, url string) (bodystring string) {
+	bodystring, err := httpClient.DoRequest(context.Request, server.Url)
 
-	req, _ := http.NewRequest(request.Method, url+request.RequestURI, request.Body)
-	req.Header = request.Header
-	client.Timeout = time.Duration(config.WaitTimeSeconds) * time.Second
-	resp, _ := client.Do(req)
-	//code := checkError(err.Error())
+	if err != nil {
+		code := checkError(err)
+		if code == 408 || code == -1 {
+			SetUnAvailableCurrentServerBy(server.Url)
+			MakeRequest(context)
+		} else {
+			fmt.Println(err)
+			context.String(500, "Error en el servidor")
+		}
+		return "", -1
+	}
 
-	//buscar servidor nuevo y enviar
-	/*if code == 408 {
-		target := RandomServer() // si target es cero -> enviar un msenaje dicieidno q no esta disponilbe el recurso
-		DoRequest(request, target)
-	}*/
-
-	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
-	stringBody := string(body)
-
-	return stringBody
+	context.String(200, bodystring)
+	return bodystring, 0
 }
 
-func RandomServer() string {
-	//buscar los q no estaninhabilitados sino devovler al cliente que no
-	//esta disponible el reques pot falta de servidores.
-	n := rand.Intn(100) % len(config.Backends)
+func cacheRequest(c *gin.Context) {
+	if cacheClient.ExistsOrNotExpiredKey(c.Request) {
+		fmt.Println("----existe el request en cache, traigo y respondo al cliente----------")
+		data := cacheClient.GetRequestValue(c.Request)
+		c.String(200, data)
 
-	return config.Backends[n]
+	} else {
+		fmt.Println("-----No existe en cache, hago el request y guardo----")
+		bodystring, code := MakeRequest(c)
+		if code != -1 {
+			cacheClient.SetRequest(c.Request, bodystring, config.ExpiredTimeInMinutes)
+		}
+	}
+}
+
+func SetUnAvailableCurrentServerBy(url string) {
+	for index := 0; index < len(servers); index++ {
+		server := servers[index]
+		if strings.EqualFold(server.Url, url) {
+			server.UnAvailableTime = 2
+			servers[index] = server
+			break
+		}
+	}
+	fmt.Println(servers)
+}
+
+func checkError(err error) int {
+	//aca se puede validar mas erroress
+	timeout, _ := regexp.MatchString("Timeout", err.Error())
+	errorConnection, _ := regexp.MatchString("No se puede establecer una conexión", err.Error())
+	if timeout {
+		return 408
+	}
+
+	if errorConnection {
+		return -1
+	}
+	return 500
 }
 
 func LoadConfigFile(filename string) {
@@ -101,14 +122,4 @@ func LoadConfigFile(filename string) {
 
 	jsonParser := json.NewDecoder(configFile)
 	jsonParser.Decode(&config)
-}
-
-func checkError(msg string) int {
-	timeout, _ := regexp.MatchString("Timeout", msg)
-
-	if timeout {
-		return 408
-	}
-
-	return 500
 }

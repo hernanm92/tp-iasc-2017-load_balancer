@@ -3,10 +3,8 @@ package cache
 import (
 	"fmt"
 	"net/http"
-	"strings"
-
 	"net/http/httputil"
-
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis"
