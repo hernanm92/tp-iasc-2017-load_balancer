@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strings"
 	"tp-iasc-2017-load_balancer/httpclient"
 	"tp-iasc-2017-load_balancer/libs"
 	"tp-iasc-2017-load_balancer/scheduler"
+
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,12 +25,13 @@ var cacheClient = cache.CacheClient{cache.NewClient()}
 var schedulerClient = scheduler.ServerScheduler{}
 var servers []scheduler.ServerData
 
-var httpClient = httpclient.HttpClient{config.WaitTimeSeconds}
+var httpClient httpclient.HttpClient
 
 func main() {
 	LoadConfigFile("config.json")
 
 	servers = schedulerClient.InitServers(config.Backends)
+	httpClient = httpclient.HttpClient{config.WaitTimeSeconds}
 
 	fmt.Println("Starting Server...")
 
@@ -51,7 +53,7 @@ func ReverseProxy(context *gin.Context) {
 }
 
 func MakeRequest(context *gin.Context) (string, int) {
-	server, errorCode := schedulerClient.RandomServer(servers)
+	server, errorCode := schedulerClient.GetFirstAvailable(servers)
 	if errorCode == -1 {
 		context.String(200, "En estos momentos no se puede antender esta solicitud")
 		return "", -1
@@ -62,7 +64,7 @@ func MakeRequest(context *gin.Context) (string, int) {
 	if err != nil {
 		code := checkError(err)
 		if code == 408 || code == -1 {
-			SetUnAvailableCurrentServerBy(server.Url)
+			SetFutureAvailableTime(server)
 			MakeRequest(context)
 		} else {
 			fmt.Println(err)
@@ -82,7 +84,7 @@ func cacheRequest(c *gin.Context) {
 		c.String(200, data)
 
 	} else {
-		fmt.Println("-----No existe en cache, hago el request y guardo----")
+		fmt.Println("-----No existe en cache, hago el request y guardo-----")
 		bodystring, code := MakeRequest(c)
 		if code != -1 {
 			cacheClient.SetRequest(c.Request, bodystring, config.ExpiredTimeInMinutes)
@@ -90,12 +92,13 @@ func cacheRequest(c *gin.Context) {
 	}
 }
 
-func SetUnAvailableCurrentServerBy(url string) {
+func SetFutureAvailableTime(serverToUpdate scheduler.ServerData) {
 	for index := 0; index < len(servers); index++ {
 		server := servers[index]
-		if strings.EqualFold(server.Url, url) {
-			server.UnAvailableTime = 2
-			servers[index] = server
+		if server.Id == serverToUpdate.Id {
+			serverToUpdate.EnabledFrom = time.Now().Add(time.Duration(2) * time.Minute)
+			fmt.Println(server)
+			servers[index] = serverToUpdate
 			break
 		}
 	}
@@ -105,7 +108,7 @@ func SetUnAvailableCurrentServerBy(url string) {
 func checkError(err error) int {
 	//aca se puede validar mas erroress
 	timeout, _ := regexp.MatchString("Timeout", err.Error())
-	errorConnection, _ := regexp.MatchString("No se puede establecer una conexión", err.Error())
+	errorConnection, _ := regexp.MatchString("No se puede establecer una conexión ", err.Error())
 	if timeout {
 		return 408
 	}
