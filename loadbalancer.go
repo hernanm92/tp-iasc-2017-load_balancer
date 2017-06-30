@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"tp-iasc-2017-load_balancer/constants"
 	"tp-iasc-2017-load_balancer/httpclient"
 	"tp-iasc-2017-load_balancer/libs"
 	"tp-iasc-2017-load_balancer/scheduler"
@@ -15,9 +16,10 @@ import (
 )
 
 type Config struct {
-	Backends             []string `json:"backends"`
-	WaitTimeSeconds      int      `json:"wait_time_seconds"`
-	ExpiredTimeInMinutes int      `json:"expired_time_in_minutes"`
+	Backends                []string `json:"backends"`
+	WaitTimeSeconds         int      `json:"wait_time_seconds"`
+	ExpiredTimeInMinutes    int      `json:"expired_time_in_minutes"`
+	MinutesOfNoAvailability int      `json:"minutes_of_no_availability"`
 }
 
 var config Config
@@ -54,27 +56,27 @@ func ReverseProxy(context *gin.Context) {
 
 func MakeRequest(context *gin.Context) (string, int) {
 	server, errorCode := schedulerClient.GetFirstAvailable(servers)
-	if errorCode == -1 {
+	if errorCode == constants.NOAVAILABLESERVERCODE {
 		context.String(200, "En estos momentos no se puede antender esta solicitud")
-		return "", -1
+		return "", constants.NOAVAILABLESERVERCODE
 	}
 
 	bodystring, err := httpClient.DoRequest(context.Request, server.Url)
 
 	if err != nil {
 		code := checkError(err)
-		if code == 408 || code == -1 {
+		if code == constants.TIMEOUTERRORCODE || code == constants.NOCONNECTIONSERVER {
 			SetFutureAvailableTime(server)
 			MakeRequest(context)
 		} else {
 			fmt.Println(err)
 			context.String(500, "Error en el servidor")
 		}
-		return "", -1
+		return "", constants.ERRORREQUESTOCODE
 	}
 
 	context.String(200, bodystring)
-	return bodystring, 0
+	return bodystring, constants.NOERRORCODE
 }
 
 func cacheRequest(c *gin.Context) {
@@ -86,17 +88,18 @@ func cacheRequest(c *gin.Context) {
 	} else {
 		fmt.Println("-----No existe en cache, hago el request y guardo-----")
 		bodystring, code := MakeRequest(c)
-		if code != -1 {
+		if code != constants.ERRORREQUESTOCODE {
 			cacheClient.SetRequest(c.Request, bodystring, config.ExpiredTimeInMinutes)
 		}
 	}
 }
 
+//pasar el time enable a config
 func SetFutureAvailableTime(serverToUpdate scheduler.ServerData) {
 	for index := 0; index < len(servers); index++ {
 		server := servers[index]
 		if server.Id == serverToUpdate.Id {
-			serverToUpdate.EnabledFrom = time.Now().Add(time.Duration(2) * time.Minute)
+			serverToUpdate.EnabledFrom = time.Now().Add(time.Duration(config.MinutesOfNoAvailability) * time.Minute)
 			fmt.Println(server)
 			servers[index] = serverToUpdate
 			break
@@ -110,11 +113,11 @@ func checkError(err error) int {
 	timeout, _ := regexp.MatchString("Timeout", err.Error())
 	errorConnection, _ := regexp.MatchString("No se puede establecer una conexión ", err.Error())
 	if timeout {
-		return 408
+		return constants.TIMEOUTERRORCODE
 	}
 
 	if errorConnection {
-		return -1
+		return constants.NOCONNECTIONSERVER
 	}
 	return 500
 }

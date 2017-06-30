@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"time"
+	"tp-iasc-2017-load_balancer/constants"
 )
 
 type ServerData struct {
@@ -13,10 +14,10 @@ type ServerData struct {
 type ServerScheduler struct {
 }
 
-//cambiar nombre por "primer disponibe"
+//aca se podria usar un sistemas de listas de disp y no disp
 func (scheduler ServerScheduler) GetFirstAvailable(servers []ServerData) (ServerData, int) {
 	//n := rand.Intn(100) % len(config.Backends)
-	count := 0
+	unavailableServers := 0
 	availableServer := 0
 	for index := 0; index < len(servers); index++ {
 		server := servers[index]
@@ -24,15 +25,15 @@ func (scheduler ServerScheduler) GetFirstAvailable(servers []ServerData) (Server
 			availableServer = index
 			break
 		} else {
-			count++
+			unavailableServers++
 		}
 	}
 
-	if count == 3 {
-		return ServerData{}, -1
+	if unavailableServers == len(servers) {
+		return ServerData{}, constants.NOAVAILABLESERVERCODE
 	}
 
-	return servers[availableServer], 0
+	return servers[availableServer], constants.NOERRORCODE
 }
 
 func IsAvailable(server ServerData) bool {
@@ -43,22 +44,16 @@ func IsAvailable(server ServerData) bool {
 
 //esto pasarlo a una propiedad interna
 func (scheduler ServerScheduler) InitServers(urlArray []string) []ServerData {
-	servers := []ServerData{
-		{
-			Id:          1,
-			Url:         urlArray[0],
+
+	servers := make([]ServerData, len(urlArray))
+	for index := 0; index < len(urlArray); index++ {
+		urlServer := urlArray[index]
+		servers[index] = ServerData{
+			Id:          index,
+			Url:         urlServer,
 			EnabledFrom: time.Now(),
-		},
-		{
-			Id:          2,
-			Url:         urlArray[1],
-			EnabledFrom: time.Now(),
-		},
-		{
-			Id:          3,
-			Url:         urlArray[2],
-			EnabledFrom: time.Now(),
-		},
+		}
 	}
+
 	return servers
 }
