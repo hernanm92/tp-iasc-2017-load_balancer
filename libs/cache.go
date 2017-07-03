@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -55,5 +56,7 @@ func (cacheClient CacheClient) IsCacheble(request *http.Request) bool {
 
 func CreateRequesString(request *http.Request) (request_string string) {
 	req, _ := httputil.DumpRequest(request, true)
-	return string(req)
+	hash := sha256.New()
+	hash.Write([]byte(string(req)))
+	return string(hash.Sum(nil))
 }
