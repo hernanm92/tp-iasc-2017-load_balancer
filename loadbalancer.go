@@ -51,7 +51,7 @@ func ReverseProxy(context *gin.Context) {
 		//cacheoss
 		cacheRequest(context)
 	} else {
-		fmt.Println("-----el request no es cacheable, no uso cache------")
+		fmt.Println("El request no es cacheable, no uso cache")
 		MakeRequest(context)
 	}
 }
@@ -83,12 +83,12 @@ func MakeRequest(context *gin.Context) (string, int) {
 
 func cacheRequest(c *gin.Context) {
 	if cacheClient.ExistsOrNotExpiredKey(c.Request) {
-		fmt.Println("----existe el request en cache, traigo y respondo al cliente----------")
+		fmt.Println("Existe el request en cache, traigo y respondo al cliente")
 		data := cacheClient.GetRequestValue(c.Request)
 		c.String(200, data)
 
 	} else {
-		fmt.Println("-----No existe en cache, hago el request y guardo-----")
+		fmt.Println("No existe en cache, hago el request y guardo")
 		bodystring, code := MakeRequest(c)
 		if code != constants.ERRORREQUESTOCODE {
 			cacheClient.SetRequest(c.Request, bodystring, config.CacheExpiredTime)
