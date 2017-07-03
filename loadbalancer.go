@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"regexp"
+
 	"tp-iasc-2017-load_balancer/constants"
 	"tp-iasc-2017-load_balancer/httpclient"
 	"tp-iasc-2017-load_balancer/libs"
@@ -16,10 +18,10 @@ import (
 )
 
 type Config struct {
-	Backends                []string `json:"backends"`
-	WaitTimeSeconds         int      `json:"wait_time_seconds"`
-	ExpiredTimeInMinutes    int      `json:"expired_time_in_minutes"`
-	MinutesOfNoAvailability int      `json:"minutes_of_no_availability"`
+	Backends              []string `json:"backends"`
+	RequestTimeout        int      `json:"request_timeout"`
+	CacheExpiredTime      int      `json:"cache_expired_time"`
+	ServerNoAvailableTime int      `json:"server_no_available_time"`
 }
 
 var config Config
@@ -33,7 +35,7 @@ func main() {
 	LoadConfigFile("config.json")
 
 	servers = schedulerClient.InitServers(config.Backends)
-	httpClient = httpclient.HttpClient{config.WaitTimeSeconds}
+	httpClient = httpclient.HttpClient{config.RequestTimeout}
 
 	fmt.Println("Starting Server...")
 
@@ -89,7 +91,7 @@ func cacheRequest(c *gin.Context) {
 		fmt.Println("-----No existe en cache, hago el request y guardo-----")
 		bodystring, code := MakeRequest(c)
 		if code != constants.ERRORREQUESTOCODE {
-			cacheClient.SetRequest(c.Request, bodystring, config.ExpiredTimeInMinutes)
+			cacheClient.SetRequest(c.Request, bodystring, config.CacheExpiredTime)
 		}
 	}
 }
@@ -99,7 +101,7 @@ func SetFutureAvailableTime(serverToUpdate scheduler.ServerData) {
 	for index := 0; index < len(servers); index++ {
 		server := servers[index]
 		if server.Id == serverToUpdate.Id {
-			serverToUpdate.EnabledFrom = time.Now().Add(time.Duration(config.MinutesOfNoAvailability) * time.Minute)
+			serverToUpdate.EnabledFrom = time.Now().Add(time.Duration(config.ServerNoAvailableTime) * time.Minute)
 			fmt.Println(server)
 			servers[index] = serverToUpdate
 			break
@@ -120,6 +122,12 @@ func checkError(err error) int {
 		return constants.NOCONNECTIONSERVER
 	}
 	return 500
+}
+
+func RandomServer() string {
+	n := rand.Intn(100) % len(config.Backends)
+
+	return config.Backends[n]
 }
 
 func LoadConfigFile(filename string) {

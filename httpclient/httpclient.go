@@ -7,7 +7,7 @@ import (
 )
 
 type HttpClient struct {
-	WaitTimeSeconds int
+	RequestTimeout int
 }
 
 var client = &http.Client{}
@@ -16,7 +16,7 @@ func (httpClient HttpClient) DoRequest(request *http.Request, url string) (strin
 
 	req, _ := http.NewRequest(request.Method, url+request.RequestURI, request.Body)
 	req.Header = request.Header
-	client.Timeout = time.Duration(httpClient.WaitTimeSeconds) * time.Second
+	client.Timeout = time.Duration(httpClient.RequestTimeout) * time.Second
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err

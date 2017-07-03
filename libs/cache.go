@@ -40,8 +40,8 @@ func (cacheClient CacheClient) GetRequestValue(request *http.Request) (data stri
 
 func (cacheClient CacheClient) ExistsOrNotExpiredKey(request *http.Request) bool {
 	key := CreateRequesString(request)
-	_, er := cacheClient.RedisClient.Get(key).Result()
-	if er == redis.Nil {
+	_, error := cacheClient.RedisClient.Get(key).Result()
+	if error == redis.Nil {
 		return false
 	}
 	return true

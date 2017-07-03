@@ -4,7 +4,7 @@
     "http://localhost:8082",
     "http://localhost:8083"
   ],
-  "wait_time_seconds": 5,
-  "expired_time_in_minutes": 1,
-  "minutes_of_no_availability":2
+  "request_timeout": 5,
+  "cache_expired_time": 1,
+  "server_no_available_time":2
 }
