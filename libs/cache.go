@@ -49,8 +49,8 @@ func (cacheClient CacheClient) ExistsOrNotExpiredKey(request *http.Request) bool
 
 func (cacheClient CacheClient) IsCacheble(request *http.Request) bool {
 	cachecontrol := string(request.Header.Get("Cache-Control"))
-	fmt.Println(cachecontrol)
-	return strings.EqualFold(string(request.Method), "GET") && !strings.EqualFold(cachecontrol, "no-cache") && !strings.EqualFold(cachecontrol, "expired")
+	expires := string(request.Header.Get("Expires"))
+	return strings.EqualFold(string(request.Method), "GET") && !strings.EqualFold(cachecontrol, "no-cache") && !strings.EqualFold(expires, "0")
 }
 
 func CreateRequesString(request *http.Request) (request_string string) {
