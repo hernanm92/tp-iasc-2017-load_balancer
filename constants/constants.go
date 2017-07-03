@@ -1,7 +1,7 @@
 package constants
 
-const NOAVAILABLESERVERCODE int = -1
-const NOCONNECTIONSERVER int = -1
-const ERRORREQUESTOCODE int = -1
-const NOERRORCODE int = 0
-const TIMEOUTERRORCODE int = 408
+const NO_AVAILABLE_SERVER_CODE int = 503
+const NO_CONNECTION_SERVER int = -1
+const ERROR_REQUEST_CODE int = -1
+const NO_ERROR_CODE int = 0
+const TIMEOUT_ERROR_CODE int = 408

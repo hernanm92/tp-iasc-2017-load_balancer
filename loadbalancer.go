@@ -48,55 +48,53 @@ func main() {
 
 func ReverseProxy(context *gin.Context) {
 	if cacheClient.IsCacheble(context.Request) {
-		//cacheoss
 		cacheRequest(context)
 	} else {
-		fmt.Println("El request no es cacheable, no uso cache")
+		fmt.Println("Don't search request in cache, call the backend but don't save it")
 		MakeRequest(context)
 	}
 }
 
 func MakeRequest(context *gin.Context) (string, int) {
 	server, errorCode := schedulerClient.GetFirstAvailable(servers)
-	if errorCode == constants.NOAVAILABLESERVERCODE {
-		context.String(200, "En estos momentos no se puede antender esta solicitud")
-		return "", constants.NOAVAILABLESERVERCODE
+	if errorCode == constants.NO_AVAILABLE_SERVER_CODE {
+		context.String(constants.NO_AVAILABLE_SERVER_CODE, "In this moment we can not attend your request")
+		return "", constants.NO_AVAILABLE_SERVER_CODE
 	}
 
 	bodystring, err := httpClient.DoRequest(context.Request, server.Url)
 
 	if err != nil {
 		code := checkError(err)
-		if code == constants.TIMEOUTERRORCODE || code == constants.NOCONNECTIONSERVER {
+		if code == constants.TIMEOUT_ERROR_CODE || code == constants.NO_CONNECTION_SERVER {
 			SetFutureAvailableTime(server)
 			MakeRequest(context)
 		} else {
 			fmt.Println(err)
-			context.String(500, "Error en el servidor")
+			context.String(500, "Server Error")
 		}
-		return "", constants.ERRORREQUESTOCODE
+		return "", constants.ERROR_REQUEST_CODE
 	}
 
 	context.String(200, bodystring)
-	return bodystring, constants.NOERRORCODE
+	return bodystring, constants.NO_ERROR_CODE
 }
 
 func cacheRequest(c *gin.Context) {
 	if cacheClient.ExistsOrNotExpiredKey(c.Request) {
-		fmt.Println("Existe el request en cache, traigo y respondo al cliente")
+		fmt.Println("The request exists in cache, don't call the backend")
 		data := cacheClient.GetRequestValue(c.Request)
 		c.String(200, data)
 
 	} else {
-		fmt.Println("No existe en cache, hago el request y guardo")
+		fmt.Println("The request don't exists in cache, call the backend and save it")
 		bodystring, code := MakeRequest(c)
-		if code != constants.ERRORREQUESTOCODE {
+		if code != constants.ERROR_REQUEST_CODE {
 			cacheClient.SetRequest(c.Request, bodystring, config.CacheExpiredTime)
 		}
 	}
 }
 
-//pasar el time enable a config
 func SetFutureAvailableTime(serverToUpdate scheduler.ServerData) {
 	for index := 0; index < len(servers); index++ {
 		server := servers[index]
@@ -111,15 +109,15 @@ func SetFutureAvailableTime(serverToUpdate scheduler.ServerData) {
 }
 
 func checkError(err error) int {
-	//aca se puede validar mas erroress
+	// aca se puede validar mas erroress
 	timeout, _ := regexp.MatchString("Timeout", err.Error())
-	errorConnection, _ := regexp.MatchString("No se puede establecer una conexión ", err.Error())
+	errorConnection, _ := regexp.MatchString("Can not establish a connection ", err.Error())
 	if timeout {
-		return constants.TIMEOUTERRORCODE
+		return constants.TIMEOUT_ERROR_CODE
 	}
 
 	if errorConnection {
-		return constants.NOCONNECTIONSERVER
+		return constants.NO_CONNECTION_SERVER
 	}
 	return 500
 }

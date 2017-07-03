@@ -30,10 +30,10 @@ func (scheduler ServerScheduler) GetFirstAvailable(servers []ServerData) (Server
 	}
 
 	if unavailableServers == len(servers) {
-		return ServerData{}, constants.NOAVAILABLESERVERCODE
+		return ServerData{}, constants.NO_AVAILABLE_SERVER_CODE
 	}
 
-	return servers[availableServer], constants.NOERRORCODE
+	return servers[availableServer], constants.NO_ERROR_CODE
 }
 
 func IsAvailable(server ServerData) bool {

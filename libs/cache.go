@@ -33,7 +33,7 @@ func (cacheClient CacheClient) GetRequestValue(request *http.Request) (data stri
 	key := CreateRequesString(request)
 	val, error := cacheClient.RedisClient.Get(key).Result()
 	if error == redis.Nil {
-		fmt.Println("Key no existe")
+		fmt.Println("Key does not exist")
 	}
 	return string(val)
 }
