@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"time"
 
 	"tp-iasc-2017-load_balancer/constants"
 	"tp-iasc-2017-load_balancer/httpclient"
 	"tp-iasc-2017-load_balancer/libs"
 	"tp-iasc-2017-load_balancer/scheduler"
-
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -110,7 +109,7 @@ func SetFutureAvailableTime(serverToUpdate scheduler.ServerData) {
 func checkError(err error) int {
 	// aca se puede validar mas erroress
 	timeout, _ := regexp.MatchString("Timeout", err.Error())
-	errorConnection, _ := regexp.MatchString("Can not establish a connection ", err.Error())
+	errorConnection, _ := regexp.MatchString("No se puede establecer una conexión ", err.Error())
 	if timeout {
 		return constants.TIMEOUT_ERROR_CODE
 	}
