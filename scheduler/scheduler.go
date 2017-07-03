@@ -15,7 +15,7 @@ type ServerScheduler struct {
 }
 
 //aca se podria usar un sistemas de listas de disp y no disp
-func (scheduler ServerScheduler) GetFirstAvailable(servers []ServerData) (ServerData, int) {
+func (scheduler ServerScheduler) GetRandomAvailableServer(servers []ServerData) (ServerData, int) {
 	//n := rand.Intn(100) % len(config.Backends)
 	unavailableServers := 0
 	availableServer := 0

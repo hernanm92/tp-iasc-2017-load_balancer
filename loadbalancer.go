@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
 	"regexp"
 
@@ -56,7 +55,7 @@ func ReverseProxy(context *gin.Context) {
 }
 
 func MakeRequest(context *gin.Context) (string, int) {
-	server, errorCode := schedulerClient.GetFirstAvailable(servers)
+	server, errorCode := schedulerClient.GetRandomAvailableServer(servers)
 	if errorCode == constants.NO_AVAILABLE_SERVER_CODE {
 		context.String(constants.NO_AVAILABLE_SERVER_CODE, "In this moment we can not attend your request")
 		return "", constants.NO_AVAILABLE_SERVER_CODE
@@ -120,12 +119,6 @@ func checkError(err error) int {
 		return constants.NO_CONNECTION_SERVER
 	}
 	return 500
-}
-
-func RandomServer() string {
-	n := rand.Intn(100) % len(config.Backends)
-
-	return config.Backends[n]
 }
 
 func LoadConfigFile(filename string) {
