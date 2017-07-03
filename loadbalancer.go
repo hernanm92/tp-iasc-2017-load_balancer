@@ -107,16 +107,16 @@ func SetFutureAvailableTime(serverToUpdate scheduler.ServerData) {
 }
 
 func checkError(err error) int {
-	// aca se puede validar mas erroress
 	timeout, _ := regexp.MatchString("Timeout", err.Error())
-	errorConnection, _ := regexp.MatchString("No se puede establecer una conexión ", err.Error())
 	if timeout {
 		return constants.TIMEOUT_ERROR_CODE
 	}
 
+	errorConnection, _ := regexp.MatchString("No se puede establecer una conexión ", err.Error())
 	if errorConnection {
 		return constants.NO_CONNECTION_SERVER
 	}
+
 	return 500
 }
 
