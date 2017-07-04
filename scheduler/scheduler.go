@@ -26,7 +26,7 @@ func (scheduler ServerScheduler) GetRandomAvailableServer(servers []ServerData) 
 	}
 	// valido si tengo disponibles
 	if len(availableServers) == 0 {
-		return ServerData{}, constants.NO_AVAILABLE_SERVER_CODE
+		return ServerData{}, constants.UNAVAILABLE_SERVER_CODE
 	}
 	// obtengo un server random dentro de los disponibles
 	n := rand.Intn(len(availableServers))

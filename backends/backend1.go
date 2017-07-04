@@ -1,14 +1,16 @@
 package main
 
-import "gopkg.in/gin-gonic/gin.v1"
+import (
+	"gopkg.in/gin-gonic/gin.v1"
+	"time"
+)
 
 func main() {
 	router := gin.Default()
 
 	router.GET("/ping", func(c *gin.Context) {
-		for {
+		time.Sleep(10 * time.Second)
 
-		}
 		c.JSON(200, gin.H{
 			"message": "pong",
 		})
